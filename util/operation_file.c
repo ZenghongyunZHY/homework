@@ -3,11 +3,11 @@
 #include <stdlib.h>
 
 /**
- * @brief Initialize file handles and runtime data manager state.
+ * @brief 初始化文件句柄和数据管理器运行状态。
  *
- * @param manager Data manager to initialize.
- * @param cin_filename Input CSV file path.
- * @return Initialized manager on success, NULL on failure.
+ * @param manager 需要初始化的数据管理器。
+ * @param cin_filename 输入 CSV 文件路径。
+ * @return 成功返回初始化后的数据管理器，失败返回 NULL。
  */
 Data_Manager* init_file(Data_Manager* manager, const char* cin_filename) {
     if (manager == NULL) {
@@ -41,9 +41,9 @@ Data_Manager* init_file(Data_Manager* manager, const char* cin_filename) {
 }
 
 /**
- * @brief Create an empty queue for water quality data nodes.
+ * @brief 创建用于保存水质数据节点的空队列。
  *
- * @return Newly allocated queue on success, NULL on allocation failure.
+ * @return 成功返回新分配的队列，内存分配失败时返回 NULL。
  */
 Queue* create_queue(void) {
     Queue* q = (Queue*)malloc(sizeof(Queue));
@@ -54,11 +54,11 @@ Queue* create_queue(void) {
 }
 
 /**
- * @brief Read one data record by delegating to a concrete read strategy.
+ * @brief 通过具体读取策略读取一条数据记录。
  *
- * @param manager Data manager containing file and queue state.
- * @param size Maximum queue size used by the read strategy.
- * @param diff_read_func Concrete read strategy callback.
+ * @param manager 保存文件和队列状态的数据管理器。
+ * @param size 读取策略使用的队列最大容量。
+ * @param diff_read_func 具体读取策略回调函数。
  */
 void read_file(Data_Manager* manager, int size, void (*diff_read_func)(Data_Manager*, int)) {
     if (manager == NULL) {
@@ -73,10 +73,10 @@ void read_file(Data_Manager* manager, int size, void (*diff_read_func)(Data_Mana
 }
 
 /**
- * @brief Process current data by delegating to a concrete process strategy.
+ * @brief 通过具体处理策略处理当前数据。
  *
- * @param manager Data manager containing queue and output state.
- * @param diff_process_func Concrete process strategy callback.
+ * @param manager 保存队列和输出状态的数据管理器。
+ * @param diff_process_func 具体处理策略回调函数。
  */
 void process_data(Data_Manager* manager, void (*diff_process_func)(Data_Manager*)) {
     if (diff_process_func == NULL) {
@@ -88,10 +88,10 @@ void process_data(Data_Manager* manager, void (*diff_process_func)(Data_Manager*
 }
 
 /**
- * @brief Write the current output data record to the result file.
+ * @brief 将当前输出数据记录写入结果文件。
  *
- * @param manager Data manager containing output file and output data.
- * @return 1 on success, 0 on invalid state or write failure.
+ * @param manager 保存输出文件和输出数据的数据管理器。
+ * @return 写入成功返回 1，状态无效或写入失败返回 0。
  */
 int write_file(Data_Manager* manager) {
     if (manager == NULL ||
@@ -113,11 +113,11 @@ int write_file(Data_Manager* manager) {
 }
 
 /**
- * @brief Get the node at the specified queue index.
+ * @brief 获取队列中指定下标的节点。
  *
- * @param q Queue to search.
- * @param index Zero-based node index.
- * @return Node pointer on success, NULL if the queue or index is invalid.
+ * @param q 需要查询的队列。
+ * @param index 从 0 开始的节点下标。
+ * @return 成功返回节点指针，队列或下标无效时返回 NULL。
  */
 Node* get_node_at(Queue* q, int index) {
     if (q == NULL || index < 0 || index >= q->size) {
@@ -134,9 +134,9 @@ Node* get_node_at(Queue* q, int index) {
 }
 
 /**
- * @brief Default process strategy for selecting the output data record.
+ * @brief 默认处理策略，用于选择当前应输出的数据记录。
  *
- * @param manager Data manager containing queue and output state.
+ * @param manager 保存队列和输出状态的数据管理器。
  */
 void prev_process_func(Data_Manager* manager) {
     if (manager == NULL || manager->data_queue == NULL || manager->cout_file == NULL) {
@@ -164,10 +164,10 @@ void prev_process_func(Data_Manager* manager) {
 }
 
 /**
- * @brief Default read strategy for reading one CSV record into the queue.
+ * @brief 默认读取策略，用于读取一条 CSV 记录并加入队列。
  *
- * @param manager Data manager containing input file and queue state.
- * @param size Maximum queue size.
+ * @param manager 保存输入文件和队列状态的数据管理器。
+ * @param size 队列最大容量。
  */
 void prev_read_func(Data_Manager* manager, int size) {
     char line[256];
