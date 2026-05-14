@@ -7,8 +7,6 @@ include_directories(.)
 
 add_executable(homework
         mian.c
-        operation_file.c
-        operation_file.h
         pojo/Data.h
         pojo/User.h
         controller/DataController.c
@@ -16,4 +14,5 @@ add_executable(homework
         service/DataService.c
         service/DataService.h
         view/DataView.c
-        view/DataView.h)
+        view/DataView.h
+        util/operation_file.c)
