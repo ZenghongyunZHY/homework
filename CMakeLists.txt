@@ -6,7 +6,6 @@ set(CMAKE_C_STANDARD 11)
 include_directories(.)
 
 add_executable(homework
-        main.h
         mian.c
         operation_file.c
         operation_file.h
