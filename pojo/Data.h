@@ -1,9 +1,9 @@
-#ifndef OPERATION_FILE_H
-#define OPERATION_FILE_H
-
+//
+// Created by Chen on 2026/5/14.
+//
 #include <stdio.h>
-
-//定义结构体
+#ifndef HOMEWORK_ST_DATA_H
+#define HOMEWORK_ST_DATA_H
 typedef struct {
     double temp;//温度
     double salinity;//盐度
@@ -35,11 +35,4 @@ typedef struct {
     Data_Struct* cout_data;//结果数据
     Queue* data_queue;//数据队列
 } Data_Manager;
-Node* get_node_at(Queue* q, int index);
-Data_Manager* init_file(Data_Manager* manager, const char* cin_filename);
-Queue* create_queue(void);
-int read_file(Data_Manager* manager,int* is_finished);
-void process_data(void);
-int write_file(Data_Manager* manager);
-
-#endif // OPERATION_FILE_H
+#endif //HOMEWORK_ST_DATA_H
