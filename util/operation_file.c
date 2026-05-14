@@ -8,6 +8,8 @@
  * @param manager 需要初始化的数据管理器。
  * @param cin_filename 输入 CSV 文件路径。
  * @return 成功返回初始化后的数据管理器，失败返回 NULL。
+ *
+ * @note 该函数会打开输入文件、创建输出文件，并跳过输入文件第一行表头。
  */
 Data_Manager* init_file(Data_Manager* manager, const char* cin_filename) {
     if (manager == NULL) {
@@ -44,6 +46,8 @@ Data_Manager* init_file(Data_Manager* manager, const char* cin_filename) {
  * @brief 创建用于保存水质数据节点的空队列。
  *
  * @return 成功返回新分配的队列，内存分配失败时返回 NULL。
+ *
+ * @note 队列创建后 front 和 rear 均为空，size 初始化为 0。
  */
 Queue* create_queue(void) {
     Queue* q = (Queue*)malloc(sizeof(Queue));
@@ -59,6 +63,8 @@ Queue* create_queue(void) {
  * @param manager 保存文件和队列状态的数据管理器。
  * @param size 读取策略使用的队列最大容量。
  * @param diff_read_func 具体读取策略回调函数。
+ *
+ * @note 该函数只负责公共校验和策略调度，具体读取逻辑由回调函数实现。
  */
 void read_file(Data_Manager* manager, int size, void (*diff_read_func)(Data_Manager*, int)) {
     if (manager == NULL) {
@@ -77,6 +83,8 @@ void read_file(Data_Manager* manager, int size, void (*diff_read_func)(Data_Mana
  *
  * @param manager 保存队列和输出状态的数据管理器。
  * @param diff_process_func 具体处理策略回调函数。
+ *
+ * @note 该函数用于解耦公共处理入口和不同的数据处理算法。
  */
 void process_data(Data_Manager* manager, void (*diff_process_func)(Data_Manager*)) {
     if (diff_process_func == NULL) {
@@ -92,6 +100,8 @@ void process_data(Data_Manager* manager, void (*diff_process_func)(Data_Manager*
  *
  * @param manager 保存输出文件和输出数据的数据管理器。
  * @return 写入成功返回 1，状态无效或写入失败返回 0。
+ *
+ * @note 写入的数据来自 manager->cout_data，调用前需要先完成数据选择或处理。
  */
 int write_file(Data_Manager* manager) {
     if (manager == NULL ||
@@ -118,6 +128,8 @@ int write_file(Data_Manager* manager) {
  * @param q 需要查询的队列。
  * @param index 从 0 开始的节点下标。
  * @return 成功返回节点指针，队列或下标无效时返回 NULL。
+ *
+ * @note 该函数从队头开始顺序遍历，因此访问复杂度为 O(n)。
  */
 Node* get_node_at(Queue* q, int index) {
     if (q == NULL || index < 0 || index >= q->size) {
@@ -137,6 +149,8 @@ Node* get_node_at(Queue* q, int index) {
  * @brief 默认处理策略，用于选择当前应输出的数据记录。
  *
  * @param manager 保存队列和输出状态的数据管理器。
+ *
+ * @note 当队列数据不足 11 条时不输出；数据足够时选择满足前后窗口要求的记录。
  */
 void prev_process_func(Data_Manager* manager) {
     if (manager == NULL || manager->data_queue == NULL || manager->cout_file == NULL) {
@@ -168,6 +182,8 @@ void prev_process_func(Data_Manager* manager) {
  *
  * @param manager 保存输入文件和队列状态的数据管理器。
  * @param size 队列最大容量。
+ *
+ * @note 当队列已满时，会先移除队头旧数据，再把新读取的数据加入队尾。
  */
 void prev_read_func(Data_Manager* manager, int size) {
     char line[256];
