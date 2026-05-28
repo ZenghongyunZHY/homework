@@ -8,15 +8,18 @@ const state = {
   dataPageSize: 15,
 };
 
+let loginFailCount = 0;
+
 const views = [
   { id: "add-file", title: "添加文件", kicker: "Upload", roles: ["admin"] },
-  { id: "saved-files", title: "已保存文件", kicker: "Files", roles: ["admin", "guest"] },
+  { id: "saved-files", title: "已保存文件", kicker: "Files", roles: ["admin"] },
   { id: "overview", title: "数据概览", kicker: "Overview", roles: ["admin", "guest"] },
   { id: "data", title: "数据浏览", kicker: "Data", roles: ["admin"] },
   { id: "preprocess", title: "数据预处理", kicker: "Preprocess", roles: ["admin"] },
   { id: "stats", title: "统计分析", kicker: "Statistics", roles: ["admin", "guest"] },
   { id: "warnings", title: "预警报告", kicker: "Warnings", roles: ["admin"] },
   { id: "predict", title: "预测分析", kicker: "Prediction", roles: ["admin"] },
+  { id: "backup", title: "备份与恢复", kicker: "Backup", roles: ["admin"] },
   { id: "logs", title: "日志", kicker: "Logs", roles: ["admin"] },
 ];
 
@@ -168,6 +171,30 @@ function requireFile() {
   return true;
 }
 
+function reportExportControls() {
+  return `
+    <div class="toolbar">
+      <button class="secondary-button export-reports" type="button">导出报告文件</button>
+      <span id="report-status" class="status-line"></span>
+    </div>
+  `;
+}
+
+function bindReportExport() {
+  document.querySelectorAll(".export-reports").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const file = selectedFile();
+      const status = $("#report-status");
+      status.textContent = "正在导出报告文件...";
+      const result = await api(`/api/files/${file.id}/reports`, {
+        method: "POST",
+        body: JSON.stringify({ actor: state.user.username }),
+      });
+      status.textContent = `已导出 ${result.reports.length} 个报告文件到 reports/ 目录。`;
+    });
+  });
+}
+
 async function showView(id) {
   const view = views.find((item) => item.id === id);
   if (!view || !view.roles.includes(state.user.role)) return;
@@ -188,6 +215,7 @@ async function showView(id) {
     if (id === "stats") await renderStats();
     if (id === "warnings") await renderWarnings();
     if (id === "predict") await renderPredict();
+    if (id === "backup") await renderBackup();
     if (id === "logs") await renderLogs();
   } catch (error) {
     setContent(`<p class="message">${h(error.message)}</p>`);
@@ -302,6 +330,7 @@ async function renderOverview() {
     <section class="section-panel">
       <h3>${h(file.original_name)}</h3>
       <p class="status-line">概览基于当前已处理工作副本；增删改痕迹见“数据浏览”和“日志”。</p>
+      ${reportExportControls()}
     </section>
     ${renderMetrics([
       { label: "当前版本", value: data.version },
@@ -315,6 +344,7 @@ async function renderOverview() {
       { label: "新增记录", value: formatNumber(file.added_count) },
     ])}
   `);
+  bindReportExport();
 }
 
 function dataModeTabs() {
@@ -431,10 +461,24 @@ async function renderDataView() {
   });
   if (state.dataMode === "processed") {
     $("#modify-form").addEventListener("submit", handleModify);
+    $("#delete-mode").addEventListener("change", toggleDeleteMode);
+    toggleDeleteMode();
     $("#delete-form").addEventListener("submit", handleDelete);
     $("#add-form").addEventListener("submit", handleAdd);
   }
   await loadDataPage();
+}
+
+function toggleDeleteMode() {
+  const mode = $("#delete-mode").value;
+  const rangeMode = mode === "range";
+  $("#delete-row-box").classList.toggle("hidden", rangeMode);
+  $("#delete-field-box").classList.toggle("hidden", !rangeMode);
+  $("#delete-min-box").classList.toggle("hidden", !rangeMode);
+  $("#delete-max-box").classList.toggle("hidden", !rangeMode);
+  $("#delete-row-box input").required = !rangeMode;
+  $("#delete-min-box input").required = rangeMode;
+  $("#delete-max-box input").required = rangeMode;
 }
 
 function renderMaintenanceForms() {
@@ -451,7 +495,18 @@ function renderMaintenanceForms() {
           <button type="submit">修改字段</button>
         </form>
         <form id="delete-form" class="form-grid">
-          <label>记录号 <input name="row" type="number" min="1" required></label>
+          <label>删除方式
+            <select id="delete-mode" name="mode">
+              <option value="row">按记录号删除</option>
+              <option value="range">按字段范围批量删除</option>
+            </select>
+          </label>
+          <label id="delete-row-box">记录号 <input name="row" type="number" min="1" required></label>
+          <label id="delete-field-box" class="hidden">字段
+            <select name="field">${fieldOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select>
+          </label>
+          <label id="delete-min-box" class="hidden">最小值 <input name="min" type="number" step="0.0001"></label>
+          <label id="delete-max-box" class="hidden">最大值 <input name="max" type="number" step="0.0001"></label>
           <button type="submit" class="danger-button">软删除记录</button>
         </form>
       </div>
@@ -530,15 +585,29 @@ async function handleModify(event) {
 async function handleDelete(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
-  const row = Number(form.get("row"));
-  if (!confirm(`确认软删除记录 ${row}？该记录仍会在浏览中保留并显示为已删除。`)) return;
+  const mode = form.get("mode");
   const file = selectedFile();
-  await api(`/api/files/${file.id}/delete`, {
+  let payload = { actor: state.user.username };
+  let message = "";
+  if (mode === "range") {
+    const field = form.get("field");
+    const min = Number(form.get("min"));
+    const max = Number(form.get("max"));
+    if (!confirm(`确认按 ${fieldLabel(field)} 在 ${min} 到 ${max} 的范围批量软删除？此操作可能影响多条记录。`)) return;
+    payload = { ...payload, field, min, max };
+    message = `已按 ${fieldLabel(field)} 范围批量软删除`;
+  } else {
+    const row = Number(form.get("row"));
+    if (!confirm(`确认软删除记录 ${row}？该记录仍会在浏览中保留并显示为已删除。`)) return;
+    payload = { ...payload, row };
+    message = `记录 ${row} 已标记为软删除`;
+  }
+  const result = await api(`/api/files/${file.id}/delete`, {
     method: "POST",
-    body: JSON.stringify({ actor: state.user.username, row }),
+    body: JSON.stringify(payload),
   });
   await refreshFiles();
-  $("#data-message").textContent = `记录 ${row} 已标记为软删除，统计刷新时会自动排除。`;
+  $("#data-message").textContent = `${message}，影响 ${formatNumber(result.deleted || 0)} 条，统计刷新时会自动排除。`;
   await loadDataPage();
 }
 
@@ -560,6 +629,91 @@ async function handleAdd(event) {
   await loadDataPage();
 }
 
+async function handleFilter(event) {
+  event.preventDefault();
+  const file = selectedFile();
+  const windowSize = Number(new FormData(event.currentTarget).get("window"));
+  $("#filter-status").textContent = "正在执行移动平均滤波...";
+  const result = await api(`/api/files/${file.id}/filter`, {
+    method: "POST",
+    body: JSON.stringify({ actor: state.user.username, window: windowSize }),
+  });
+  $("#filter-status").textContent = `滤波完成，输出文件：${result.output}`;
+  $("#filter-result").innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>字段</th><th>滤波前标准差</th><th>滤波后标准差</th></tr></thead>
+        <tbody>
+          ${result.stats.map((item) => `
+            <tr>
+              <td>${fieldLabel(item.field)}</td>
+              <td>${formatNumber(item.before_stddev)}</td>
+              <td>${formatNumber(item.after_stddev)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function handleManualBackup() {
+  const file = selectedFile();
+  $("#backup-status").textContent = "正在创建手动备份...";
+  await api(`/api/files/${file.id}/backup`, {
+    method: "POST",
+    body: JSON.stringify({ actor: state.user.username }),
+  });
+  $("#backup-status").textContent = "手动备份已创建。";
+  await renderBackup();
+}
+
+async function handleRestoreBackup(backupId) {
+  if (!confirm(`确认恢复备份 ${backupId}？恢复前会自动创建 restore_guard 保护备份。`)) return;
+  const file = selectedFile();
+  $("#backup-status").textContent = "正在恢复备份...";
+  await api(`/api/files/${file.id}/restore`, {
+    method: "POST",
+    body: JSON.stringify({ actor: state.user.username, backup_id: backupId }),
+  });
+  await refreshFiles();
+  $("#backup-status").textContent = "备份恢复完成。";
+  await renderBackup();
+}
+
+async function renderBackup() {
+  if (!requireFile()) return;
+  const file = selectedFile();
+  const data = await api(`/api/files/${file.id}/backups`);
+  setContent(`
+    <section class="section-panel">
+      <h3>${h(file.original_name)}</h3>
+      <button id="manual-backup">手动备份当前工作副本</button>
+      <p id="backup-status" class="status-line">备份会保存 v001_preprocessed.csv 和 processed_operation_marks.json。</p>
+    </section>
+    <section class="section-panel">
+      <h3>备份列表</h3>
+      ${data.backups.length ? `
+        <div class="file-list">
+          ${data.backups.map((backup) => `
+            <article class="file-card">
+              <div>
+                <strong>${h(backup.id)}</strong>
+                <p class="status-line">时间：${h(backup.created_at || "-")} · 原因：${h(backup.reason || "-")} · 操作者：${h(backup.actor || "-")}</p>
+              </div>
+              <button class="secondary-button restore-backup" data-id="${h(backup.id)}">恢复此备份</button>
+            </article>
+          `).join("")}
+        </div>
+      ` : `<p class="status-line">暂无备份。</p>`}
+    </section>
+  `);
+  $("#manual-backup").addEventListener("click", handleManualBackup);
+  document.querySelectorAll(".restore-backup").forEach((button) => {
+    button.addEventListener("click", () => handleRestoreBackup(button.dataset.id));
+  });
+}
+
 async function renderPreprocess() {
   if (!requireFile()) return;
   const file = selectedFile();
@@ -570,6 +724,23 @@ async function renderPreprocess() {
       <h3>${h(file.original_name)}</h3>
       <button id="rerun-preprocess">重新预处理原始版本</button>
       <p id="preprocess-status" class="status-line">重新预处理会覆盖 v001_preprocessed，并重置已处理版本上的增删改标记。</p>
+    </section>
+    <section class="section-panel">
+      <h3>移动平均滤波</h3>
+      <form id="filter-form" class="form-grid">
+        <label>窗口大小
+          <select name="window">
+            <option value="3">3</option>
+            <option value="5">5</option>
+            <option value="7">7</option>
+            <option value="9">9</option>
+            <option value="11">11</option>
+          </select>
+        </label>
+        <button type="submit">执行滤波</button>
+      </form>
+      <p id="filter-status" class="status-line">对水温、盐度、pH、溶解氧进行移动平均滤波，降水量和气温原样保留。</p>
+      <div id="filter-result"></div>
     </section>
     <section class="section-panel">
       <h3>预处理日志</h3>
@@ -585,6 +756,7 @@ async function renderPreprocess() {
     await refreshFiles();
     $("#preprocess-status").textContent = `已重新生成 ${result.file.current_version}，操作标记已重置。`;
   });
+  $("#filter-form").addEventListener("submit", handleFilter);
 }
 
 async function renderStats() {
@@ -597,10 +769,12 @@ async function renderStats() {
         <button id="refresh-stats">刷新统计</button>
         <span id="stats-status" class="status-line">统计基于 v001_preprocessed，并默认排除软删除记录。</span>
       </div>
+      ${reportExportControls()}
     </section>
     <section id="stats-result"></section>
   `);
   $("#refresh-stats").addEventListener("click", loadStats);
+  bindReportExport();
   await loadStats();
 }
 
@@ -655,6 +829,7 @@ async function renderWarnings() {
     <section class="section-panel">
       <h3>${h(file.original_name)}</h3>
       <p class="status-line">预警基于 v001_preprocessed，并排除软删除记录 ${formatNumber(data.excluded_deleted || 0)} 条。</p>
+      ${reportExportControls()}
     </section>
     ${renderMetrics([{ label: "预警数量", value: formatNumber(data.count) }])}
     <section class="table-wrap">
@@ -668,6 +843,7 @@ async function renderWarnings() {
       </table>
     </section>
   `);
+  bindReportExport();
 }
 
 async function renderPredict() {
@@ -679,6 +855,7 @@ async function renderPredict() {
     <section class="section-panel">
       <h3>${h(file.original_name)}</h3>
       <p class="status-line">预测基于 v001_preprocessed，并排除软删除记录 ${formatNumber(data.excluded_deleted || 0)} 条。</p>
+      ${reportExportControls()}
     </section>
     ${renderMetrics([
       { label: "主模型", value: "气温 → 溶解氧" },
@@ -687,6 +864,14 @@ async function renderPredict() {
       { label: "R²", value: formatNumber(data.primary.r2) },
       { label: "RMSE", value: formatNumber(data.primary.rmse) },
     ])}
+    <section class="section-panel">
+      <h3>输入气温预测溶解氧</h3>
+      <form id="do-predict-form" class="form-grid">
+        <label>气温 Air_temp <input name="air_temp" type="number" step="0.0001" required></label>
+        <button type="submit">预测溶解氧</button>
+      </form>
+      <p id="do-predict-result" class="status-line"></p>
+    </section>
     <section class="section-panel">
       <h3>多因子对比</h3>
       <div class="table-wrap">
@@ -701,6 +886,13 @@ async function renderPredict() {
       </div>
     </section>
   `);
+  bindReportExport();
+  $("#do-predict-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const airTemp = Number(new FormData(event.currentTarget).get("air_temp"));
+    const predicted = data.primary.slope * airTemp + data.primary.intercept;
+    $("#do-predict-result").textContent = `预测 DO = ${formatNumber(predicted)}`;
+  });
 }
 
 function renderLogList(logs) {
@@ -745,7 +937,12 @@ async function renderLogs() {
 $("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   $("#login-message").textContent = "";
+  if (loginFailCount >= 3) {
+    $("#login-message").textContent = "登录失败次数已达 3 次，请刷新页面后再试。";
+    return;
+  }
   const form = new FormData(event.currentTarget);
+  const submitButton = $("#login-form button[type='submit']");
   try {
     const user = await api("/api/login", {
       method: "POST",
@@ -754,19 +951,29 @@ $("#login-form").addEventListener("submit", async (event) => {
         password: form.get("password"),
       }),
     });
+    loginFailCount = 0;
     state.user = { ...user, username: user.username || form.get("username") };
     $("#login-screen").classList.add("hidden");
     $("#app-shell").classList.remove("hidden");
     $("#user-role").textContent = user.role === "admin" ? "管理员" : "访客";
     await refreshFiles();
-    await showView(user.role === "admin" ? "add-file" : "saved-files");
+    await showView(user.role === "admin" ? "add-file" : "overview");
   } catch (error) {
-    $("#login-message").textContent = error.message;
+    loginFailCount += 1;
+    const remaining = Math.max(0, 3 - loginFailCount);
+    if (loginFailCount >= 3) {
+      submitButton.disabled = true;
+      $("#login-message").textContent = "登录失败次数已达 3 次，已禁止继续登录。";
+    } else {
+      $("#login-message").textContent = `${error.message || "用户名或密码错误"}，还剩 ${remaining} 次。`;
+    }
   }
 });
 
 $("#logout-button").addEventListener("click", () => {
   state.user = null;
+  loginFailCount = 0;
+  $("#login-form button[type='submit']").disabled = false;
   $("#app-shell").classList.add("hidden");
   $("#login-screen").classList.remove("hidden");
 });

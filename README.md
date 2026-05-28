@@ -24,6 +24,9 @@ versions/v000_raw.csv
 versions/v001_preprocessed.csv
 preview/raw_preprocess_marks.csv
 preview/processed_operation_marks.json
+backups/
+analysis/
+reports/
 metadata.json
 logs.jsonl
 ```
@@ -34,6 +37,9 @@ logs.jsonl
 - `v001_preprocessed.csv`：已处理工作副本，修改、软删除、新增都直接作用在这个文件上。
 - `raw_preprocess_marks.csv`：原始版本的预处理标记，用于显示“不处理、将删除、缺失填充、异常修复、修复并填充”。
 - `processed_operation_marks.json`：已处理版本的操作标记，用于显示“已修改、已删除、新增”。
+- `backups/`：修改、删除、新增、重新预处理、恢复前的保护备份目录。
+- `analysis/`：移动平均滤波等分析输出文件。
+- `reports/`：概览、统计、预警、预测文本报告。
 - 不再为每次修改或删除生成 `v002_modify.csv`、`v003_delete.csv` 这类快照版本。
 - 删除采用软删除：记录仍保留在表格中，但统计、预警、预测默认排除软删除记录。
 
@@ -65,15 +71,17 @@ http://127.0.0.1:8000
 ## Web 功能
 
 - 添加文件：上传 CSV，并自动生成未处理版本、已处理版本和预处理标记。
-- 已保存文件：查看所有上传文件、核心版本和操作数量摘要。
+- 已保存文件：管理员查看所有上传文件、核心版本和操作数量摘要。
 - 数据浏览：拆分为“未处理版本文件”和“已处理版本文件”。
 - 未处理版本文件：按预处理方式筛选并用底色标记将删除、缺失填充、异常修复等数据。
 - 已处理版本文件：按操作方式筛选并用底色标记已修改、已删除、新增记录；被修改的具体字段会有更深底色。
-- 数据维护：在已处理版本中修改字段、软删除记录、新增完整记录。
-- 数据预处理：查看预处理日志，也可重新预处理原始版本。重新预处理会覆盖 `v001_preprocessed.csv` 并重置操作标记。
+- 数据维护：在已处理版本中修改字段、按记录号软删除、按字段范围批量软删除、新增完整记录；每次写入前会自动备份。
+- 数据预处理：查看预处理日志，也可重新预处理原始版本；支持窗口 3、5、7、9、11 的移动平均滤波和标准差对比。
+- 备份与恢复：手动备份当前工作副本，查看自动备份列表，并从备份恢复 `v001_preprocessed.csv` 和 `processed_operation_marks.json`。
 - 日志：按文件分组展示上传、预处理、修改、软删除、新增日志，记录操作者、时间、记录号、字段、旧值、新值。
-- 统计分析：点击“刷新统计”后，对当前文件的 `v001_preprocessed.csv` 重新计算统计结果，并排除软删除记录。
-- 预警报告、预测分析：均基于当前文件的已处理工作副本，并排除软删除记录。
+- 统计分析：点击“刷新统计”后，对当前文件的 `v001_preprocessed.csv` 重新计算统计结果，并排除软删除记录；可导出报告文件。
+- 预警报告、预测分析：均基于当前文件的已处理工作副本，并排除软删除记录；预测页可输入气温计算预测 DO。
+- 登录限制：登录失败 3 次后禁用登录按钮。
 
 ## C CLI 示例
 
@@ -84,6 +92,7 @@ water_quality.exe query --input versions/v001_preprocessed.csv --view processed 
 water_quality.exe modify --input versions/v001_preprocessed.csv --row 10 --field ph --value 8.1
 water_quality.exe delete --input versions/v001_preprocessed.csv --row 20
 water_quality.exe add --input versions/v001_preprocessed.csv --temp 25 --salinity 34 --ph 8.1 --do 6 --precipitation 0 --air_temp 27
+water_quality.exe filter --input versions/v001_preprocessed.csv --output analysis/filter_window_5.csv --window 5
 water_quality.exe stats --input versions/v001_preprocessed.csv --op-marks preview/processed_operation_marks.json
 ```
 
@@ -91,6 +100,10 @@ water_quality.exe stats --input versions/v001_preprocessed.csv --op-marks previe
 
 - 上传后只生成 `v000_raw.csv` 和 `v001_preprocessed.csv` 两个核心版本。
 - 修改字段后，已处理表格中对应记录和字段有操作标记，日志记录旧值和新值。
+- 修改、软删除、新增、重新预处理前会在 `backups/` 中生成保护备份。
 - 软删除后，记录仍显示在已处理表格中，但统计刷新时被排除。
+- 可以从备份恢复当前工作副本和操作标记。
 - 新增记录会追加到已处理文件末尾，并显示为新增记录。
+- 移动平均滤波能生成 `analysis/filter_window_*.csv` 并显示标准差变化。
+- 可以生成 `reports/overview_report.txt`、`stat_report.txt`、`warning_report.txt`、`predict_report.txt`。
 - 未处理版本和已处理版本使用不同的筛选项与标记逻辑。

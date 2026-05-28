@@ -1489,6 +1489,106 @@ static int run_predict(int argc, char** argv) {
     return 0;
 }
 
+static int run_filter(int argc, char** argv) {
+    const char* input = NULL;
+    const char* output = arg_value(argc, argv, "--output");
+    const char* window_arg = arg_value(argc, argv, "--window");
+    if (!require_input_path(argc, argv, &input)) {
+        return 1;
+    }
+    if (output == NULL || output[0] == '\0' || window_arg == NULL) {
+        print_error_json("--output and --window are required");
+        return 1;
+    }
+    int window = atoi(window_arg);
+    if (!(window == 3 || window == 5 || window == 7 || window == 9 || window == 11)) {
+        print_error_json("--window must be one of 3, 5, 7, 9, 11");
+        return 1;
+    }
+
+    DataSet set;
+    ReadSummary summary;
+    if (!read_dataset_csv(input, &set, &summary)) {
+        print_error_json("failed to read data file");
+        return 1;
+    }
+    DataSet filtered;
+    dataset_init(&filtered);
+    if (!dataset_reserve(&filtered, set.size)) {
+        dataset_free(&set);
+        print_error_json("memory allocation failed");
+        return 1;
+    }
+    for (int i = 0; i < set.size; i++) {
+        if (!dataset_push(&filtered, set.items[i])) {
+            dataset_free(&filtered);
+            dataset_free(&set);
+            print_error_json("memory allocation failed");
+            return 1;
+        }
+    }
+
+    int half = window / 2;
+    for (int i = 0; i < set.size; i++) {
+        int start = i - half;
+        int end = i + half;
+        if (start < 0) {
+            start = 0;
+        }
+        if (end >= set.size) {
+            end = set.size - 1;
+        }
+        for (int field = 0; field < 4; field++) {
+            double sum = 0.0;
+            int count = 0;
+            for (int row = start; row <= end; row++) {
+                double value = get_field_value(&set.items[row], field);
+                if (!isnan(value)) {
+                    sum += value;
+                    count++;
+                }
+            }
+            if (count > 0) {
+                set_field_value(&filtered.items[i], field, sum / count);
+            }
+        }
+    }
+
+    if (!write_dataset_csv(output, &filtered)) {
+        dataset_free(&filtered);
+        dataset_free(&set);
+        print_error_json("failed to write filtered file");
+        return 1;
+    }
+
+    BasicStats before[WQ_FIELD_COUNT];
+    BasicStats after[WQ_FIELD_COUNT];
+    compute_basic_stats(&set, before);
+    compute_basic_stats(&filtered, after);
+
+    printf("{\"success\":true,\"input\":");
+    json_string(input);
+    printf(",\"output\":");
+    json_string(output);
+    printf(",\"window\":%d,\"stats\":[", window);
+    for (int field = 0; field < 4; field++) {
+        if (field > 0) {
+            printf(",");
+        }
+        printf("{\"field\":\"%s\",\"label\":\"%s\",\"before_stddev\":",
+               FIELDS[field].key, FIELDS[field].label);
+        json_number(before[field].stddev);
+        printf(",\"after_stddev\":");
+        json_number(after[field].stddev);
+        printf("}");
+    }
+    printf("]}\n");
+
+    dataset_free(&filtered);
+    dataset_free(&set);
+    return 0;
+}
+
 static int run_modify(int argc, char** argv) {
     const char* input = NULL;
     const char* output = arg_value(argc, argv, "--output");
@@ -1712,6 +1812,9 @@ int data_service_run_cli(int argc, char** argv) {
     if (strcmp(command, "predict") == 0) {
         return run_predict(argc, argv);
     }
+    if (strcmp(command, "filter") == 0) {
+        return run_filter(argc, argv);
+    }
     if (strcmp(command, "modify") == 0) {
         return run_modify(argc, argv);
     }
@@ -1723,7 +1826,7 @@ int data_service_run_cli(int argc, char** argv) {
     }
     if (has_arg(argc, argv, "--help")) {
         printf("{\"success\":true,\"commands\":[\"login\",\"overview\",\"preprocess\","
-               "\"query\",\"stats\",\"warnings\",\"predict\",\"modify\",\"delete\",\"add\"]}\n");
+               "\"query\",\"stats\",\"warnings\",\"predict\",\"filter\",\"modify\",\"delete\",\"add\"]}\n");
         return 0;
     }
     print_error_json("unknown command");

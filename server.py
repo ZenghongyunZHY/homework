@@ -19,6 +19,14 @@ FILES_DIR = WORKSPACE / "files"
 FIELD_KEYS = ["temp", "salinity", "ph", "do", "precipitation", "air_temp"]
 RAW_MARKS_FILE = "raw_preprocess_marks.csv"
 OPERATION_MARKS_FILE = "processed_operation_marks.json"
+BACKUP_REASONS = {
+    "before_modify",
+    "before_delete",
+    "before_add",
+    "before_preprocess",
+    "manual",
+    "restore_guard",
+}
 
 
 def now_iso():
@@ -92,6 +100,18 @@ def metadata_path(directory):
 
 def logs_path(directory):
     return directory / "logs.jsonl"
+
+
+def backups_dir(directory):
+    return directory / "backups"
+
+
+def reports_dir(directory):
+    return directory / "reports"
+
+
+def analysis_dir(directory):
+    return directory / "analysis"
 
 
 def load_metadata(directory):
@@ -222,6 +242,127 @@ def initialize_operation_marks(directory, metadata):
     marks = empty_operation_marks()
     save_operation_marks(directory, metadata, marks)
     metadata.update(operation_counts(marks))
+
+
+def create_backup(directory, metadata, reason, actor="admin"):
+    if reason not in BACKUP_REASONS:
+        raise ValueError("invalid backup reason")
+    ensure_processed_ready(metadata)
+    source_csv = processed_file_path(directory, metadata)
+    source_marks = operation_marks_path(directory, metadata)
+    if not source_csv.exists():
+        raise FileNotFoundError("v001_preprocessed.csv")
+
+    root = backups_dir(directory)
+    root.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_id = f"backup_{timestamp}_{reason}"
+    target = root / backup_id
+    index = 2
+    while target.exists():
+        backup_id = f"backup_{timestamp}_{reason}_{index}"
+        target = root / backup_id
+        index += 1
+    target.mkdir(parents=True)
+
+    backup_csv = target / "v001_preprocessed.csv"
+    backup_marks = target / OPERATION_MARKS_FILE
+    shutil.copyfile(source_csv, backup_csv)
+    if source_marks.exists():
+        shutil.copyfile(source_marks, backup_marks)
+    else:
+        backup_marks.write_text(json.dumps(empty_operation_marks(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    info = {
+        "id": backup_id,
+        "reason": reason,
+        "actor": actor,
+        "created_at": now_iso(),
+        "csv": "v001_preprocessed.csv",
+        "operation_marks": OPERATION_MARKS_FILE,
+        "operation_summary": operation_counts(load_operation_marks(directory, metadata)),
+    }
+    (target / "backup_info.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+    metadata["last_backup_at"] = info["created_at"]
+    save_metadata(directory, metadata)
+    append_log(directory, {
+        "category": "backup",
+        "type": "create",
+        "actor": actor,
+        "backup_id": backup_id,
+        "reason": reason,
+        "message": f"已创建 {reason} 备份",
+    })
+    return info
+
+
+def list_backups(directory):
+    root = backups_dir(directory)
+    if not root.exists():
+        return []
+    items = []
+    for path in root.iterdir():
+        if not path.is_dir():
+            continue
+        info_path = path / "backup_info.json"
+        if info_path.exists():
+            info = json.loads(info_path.read_text(encoding="utf-8"))
+        else:
+            info = {"id": path.name, "reason": "unknown", "actor": "-", "created_at": ""}
+        info["has_csv"] = (path / "v001_preprocessed.csv").exists()
+        info["has_operation_marks"] = (path / OPERATION_MARKS_FILE).exists()
+        items.append(info)
+    items.sort(key=lambda item: item.get("created_at") or item.get("id", ""), reverse=True)
+    return items
+
+
+def restore_backup(directory, backup_id, actor="admin"):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", backup_id or ""):
+        raise ValueError("invalid backup id")
+    metadata = load_metadata(directory)
+    backup_path = backups_dir(directory) / backup_id
+    if not backup_path.exists() or not backup_path.is_dir():
+        raise FileNotFoundError(backup_id)
+
+    backup_csv = backup_path / "v001_preprocessed.csv"
+    backup_marks = backup_path / OPERATION_MARKS_FILE
+    if not backup_csv.exists():
+        raise FileNotFoundError("backup csv")
+
+    overview, status = run_c_command(["overview", "--input", c_path(backup_csv)])
+    if status != 200:
+        return overview, status
+
+    guard = create_backup(directory, metadata, "restore_guard", actor)
+    metadata = load_metadata(directory)
+    target_csv = processed_file_path(directory, metadata)
+    target_marks = operation_marks_path(directory, metadata)
+    target_csv.parent.mkdir(parents=True, exist_ok=True)
+    target_marks.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(backup_csv, target_csv)
+    if backup_marks.exists():
+        shutil.copyfile(backup_marks, target_marks)
+    else:
+        save_operation_marks(directory, metadata, empty_operation_marks())
+
+    marks = load_operation_marks(directory, metadata)
+    update_operation_summary(directory, metadata, marks)
+    append_log(directory, {
+        "category": "backup",
+        "type": "restore",
+        "actor": actor,
+        "backup_id": backup_id,
+        "guard_backup_id": guard["id"],
+        "message": f"已从备份 {backup_id} 恢复当前工作副本",
+    })
+    return {
+        "success": True,
+        "backup_id": backup_id,
+        "guard_backup_id": guard["id"],
+        "overview": overview,
+        "file": summarize_file(directory),
+        "backups": list_backups(directory),
+    }, 200
 
 
 def summarize_file(directory):
@@ -370,6 +511,9 @@ def rerun_preprocess(directory, actor="admin"):
     v000_path, _ = version_path(directory, metadata, "v000_raw")
     v001_path = directory / "versions" / "v001_preprocessed.csv"
     marks_path = raw_marks_path(directory, metadata)
+    if v001_path.exists():
+        create_backup(directory, metadata, "before_preprocess", actor)
+        metadata = load_metadata(directory)
     preprocess, status = run_c_command([
         "preprocess",
         "--input", c_path(raw_path),
@@ -420,6 +564,7 @@ def apply_modify(directory, body):
     if marks.get("rows", {}).get(str(row), {}).get("status") == "deleted":
         return {"success": False, "message": "deleted row cannot be modified"}, 400
     path = processed_file_path(directory, metadata)
+    create_backup(directory, metadata, "before_modify", actor)
     result, status = run_c_command([
         "modify",
         "--input", c_path(path),
@@ -451,6 +596,7 @@ def apply_delete(directory, body):
     ensure_processed_ready(metadata)
     actor = body.get("actor", "admin")
     path = processed_file_path(directory, metadata)
+    create_backup(directory, metadata, "before_delete", actor)
     args = ["delete", "--input", c_path(path)]
     if "row" in body:
         args.extend(["--row", str(body["row"])])
@@ -490,6 +636,7 @@ def apply_add(directory, body):
     ensure_processed_ready(metadata)
     actor = body.get("actor", "admin")
     record = body.get("record") if isinstance(body.get("record"), dict) else body
+    create_backup(directory, metadata, "before_add", actor)
     args = ["add", "--input", c_path(processed_file_path(directory, metadata))]
     for key in FIELD_KEYS:
         if key not in record:
@@ -516,6 +663,156 @@ def apply_add(directory, body):
         "message": f"新增记录 {row}",
     })
     return {**result, "file": summarize_file(directory), "operation_summary": operation_counts(marks)}, 200
+
+
+def apply_filter(directory, body):
+    metadata = load_metadata(directory)
+    ensure_processed_ready(metadata)
+    actor = body.get("actor", "admin")
+    window = int(body.get("window", 0))
+    if window not in (3, 5, 7, 9, 11):
+        return {"success": False, "message": "window must be 3, 5, 7, 9, or 11"}, 400
+    output_dir = analysis_dir(directory)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"filter_window_{window}.csv"
+    payload, status = run_c_command([
+        "filter",
+        "--input", c_path(processed_file_path(directory, metadata)),
+        "--output", c_path(output_path),
+        "--window", str(window),
+    ])
+    if status == 200:
+        payload["output"] = rel_path(directory, output_path)
+        append_log(directory, {
+            "category": "analysis",
+            "type": "filter",
+            "actor": actor,
+            "window": window,
+            "output": payload["output"],
+            "message": f"执行窗口 {window} 的移动平均滤波",
+        })
+    return payload, status
+
+
+def analysis_payload(directory, metadata, command):
+    if command == "overview":
+        path, _ = version_path(directory, metadata, "v001_preprocessed")
+        args = [command, "--input", c_path(path)]
+    else:
+        path, _ = version_path(directory, metadata, "v001_preprocessed")
+        args = [command, "--input", c_path(path), "--op-marks", c_path(operation_marks_path(directory, metadata))]
+    return run_c_command(args)
+
+
+def field_name(key):
+    labels = {
+        "temp": "水温",
+        "salinity": "盐度",
+        "ph": "pH",
+        "do": "溶解氧",
+        "precipitation": "降水量",
+        "air_temp": "气温",
+    }
+    return labels.get(key, key)
+
+
+def render_report_text(command, file_summary, payload):
+    lines = [
+        f"文件：{file_summary['original_name']}",
+        f"报告类型：{command}",
+        f"生成时间：{now_iso()}",
+        "",
+    ]
+    if command == "overview":
+        lines.extend([
+            f"总记录数：{payload.get('total_records')}",
+            f"有效记录数：{payload.get('valid_records')}",
+            f"异常记录数：{payload.get('abnormal_records')}",
+            f"缺失值数量：{payload.get('missing_values')}",
+            f"格式错误行：{payload.get('format_errors')}",
+        ])
+    elif command == "stats":
+        lines.append("基本统计量：")
+        for item in payload.get("stats", []):
+            lines.append(
+                f"- {field_name(item.get('field'))}: 均值 {item.get('mean')}, "
+                f"最小值 {item.get('min')}, 最大值 {item.get('max')}, 标准差 {item.get('stddev')}"
+            )
+        lines.append(f"已排除软删除记录：{payload.get('excluded_deleted', 0)}")
+    elif command == "warnings":
+        lines.append(f"预警数量：{payload.get('count', 0)}")
+        for item in payload.get("warnings", []):
+            lines.append(
+                f"- {item.get('time')} | {item.get('type')} | {item.get('value')} | {item.get('advice')}"
+            )
+        lines.append(f"已排除软删除记录：{payload.get('excluded_deleted', 0)}")
+    elif command == "predict":
+        primary = payload.get("primary", {})
+        lines.extend([
+            "主模型：气温 -> 溶解氧",
+            f"斜率：{primary.get('slope')}",
+            f"截距：{primary.get('intercept')}",
+            f"R²：{primary.get('r2')}",
+            f"RMSE：{primary.get('rmse')}",
+            f"已排除软删除记录：{payload.get('excluded_deleted', 0)}",
+            "",
+            "多因子模型：",
+        ])
+        for item in payload.get("models", []):
+            lines.append(
+                f"- {field_name(item.get('x_field'))}: slope={item.get('slope')}, "
+                f"intercept={item.get('intercept')}, r2={item.get('r2')}, rmse={item.get('rmse')}"
+            )
+    return "\n".join(lines) + "\n"
+
+
+def list_reports(directory):
+    root = reports_dir(directory)
+    if not root.exists():
+        return []
+    items = []
+    for path in sorted(root.glob("*_report.txt")):
+        stat = path.stat()
+        items.append({
+            "name": path.name,
+            "path": rel_path(directory, path),
+            "size": stat.st_size,
+            "modified_at": datetime.fromtimestamp(stat.st_mtime).replace(microsecond=0).isoformat(sep=" "),
+        })
+    return items
+
+
+def generate_reports(directory, actor="admin"):
+    metadata = load_metadata(directory)
+    ensure_processed_ready(metadata)
+    root = reports_dir(directory)
+    root.mkdir(parents=True, exist_ok=True)
+    file_summary = summarize_file(directory)
+    commands = [
+        ("overview", "overview_report.txt"),
+        ("stats", "stat_report.txt"),
+        ("warnings", "warning_report.txt"),
+        ("predict", "predict_report.txt"),
+    ]
+    generated = []
+    for command, filename in commands:
+        payload, status = analysis_payload(directory, metadata, command)
+        if status != 200:
+            return payload, status
+        path = root / filename
+        path.write_text(render_report_text(command, file_summary, payload), encoding="utf-8")
+        generated.append({
+            "name": filename,
+            "path": rel_path(directory, path),
+        })
+    append_log(directory, {
+        "category": "report",
+        "type": "export",
+        "actor": actor,
+        "files": generated,
+        "message": "导出概览、统计、预警、预测报告文件",
+    })
+    return {"success": True, "reports": list_reports(directory), "file": summarize_file(directory)}, 200
 
 
 class WaterQualityHandler(SimpleHTTPRequestHandler):
@@ -618,6 +915,12 @@ class WaterQualityHandler(SimpleHTTPRequestHandler):
             if len(segments) == 4 and segments[3] == "operation-summary":
                 self.send_json({"success": True, **operation_counts(load_operation_marks(directory, metadata))})
                 return
+            if len(segments) == 4 and segments[3] == "backups":
+                self.send_json({"success": True, "backups": list_backups(directory), "file": summarize_file(directory)})
+                return
+            if len(segments) == 4 and segments[3] == "reports":
+                self.send_json({"success": True, "reports": list_reports(directory), "file": summarize_file(directory)})
+                return
             if len(segments) == 4 and segments[3] == "raw-data":
                 self.send_file_data(directory, metadata, query, "raw")
                 return
@@ -672,6 +975,23 @@ class WaterQualityHandler(SimpleHTTPRequestHandler):
                 return
             if action == "add":
                 payload, status = apply_add(directory, body)
+                self.send_json(payload, status)
+                return
+            if action == "filter":
+                payload, status = apply_filter(directory, body)
+                self.send_json(payload, status)
+                return
+            if action == "backup":
+                metadata = load_metadata(directory)
+                info = create_backup(directory, metadata, "manual", body.get("actor", "admin"))
+                self.send_json({"success": True, "backup": info, "backups": list_backups(directory), "file": summarize_file(directory)})
+                return
+            if action == "restore":
+                payload, status = restore_backup(directory, body.get("backup_id", ""), body.get("actor", "admin"))
+                self.send_json(payload, status)
+                return
+            if action == "reports":
+                payload, status = generate_reports(directory, body.get("actor", "admin"))
                 self.send_json(payload, status)
                 return
         self.send_json({"success": False, "message": "unknown API endpoint"}, 404)
