@@ -1,116 +1,85 @@
 #include "operation_file.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-/**
- * @brief 初始化文件句柄和数据管理器运行状态。
- *
- * @param manager 需要初始化的数据管理器。
- * @param cin_filename 输入 CSV 文件路径。
- * @return 成功返回初始化后的数据管理器，失败返回 NULL。
- *
- * @note 该函数会打开输入文件、创建输出文件，并跳过输入文件第一行表头。
- */
 Data_Manager* init_file(Data_Manager* manager, const char* cin_filename) {
-    if (manager == NULL) {
-        fprintf(stderr, "Data_Manager is NULL\n");
+    if (manager == NULL || cin_filename == NULL) {
+        fprintf(stderr, "Data_Manager or filename is NULL\n");
         return NULL;
     }
 
+    manager->cin_file = fopen(cin_filename, "r");
+    if (manager->cin_file == NULL) {
+        fprintf(stderr, "failed to open input file\n");
+        return NULL;
+    }
+
+    manager->cout_file = fopen("result.csv", "w");
+    if (manager->cout_file == NULL) {
+        fprintf(stderr, "failed to open output file\n");
+        fclose(manager->cin_file);
+        manager->cin_file = NULL;
+        return NULL;
+    }
+
+    char header[256];
+    fgets(header, sizeof(header), manager->cin_file);
+    manager->is_read_finished = 0;
     manager->cout_data = NULL;
-
-    FILE* cout_file = fopen("result.csv", "w");
-    if (cout_file == NULL) {
-        fprintf(stderr, "Failed to create result file\n");
+    manager->data_queue = create_queue();
+    if (manager->data_queue == NULL) {
+        fclose(manager->cin_file);
+        fclose(manager->cout_file);
+        manager->cin_file = NULL;
+        manager->cout_file = NULL;
         return NULL;
-    }
-
-    FILE* cin_file = fopen(cin_filename, "r");
-    if (cin_file == NULL) {
-        fprintf(stderr, "Failed to open input file\n");
-        fclose(cout_file);
-        return NULL;
-    }
-
-    char line[256];
-    fgets(line, sizeof(line), cin_file);
-    manager->cout_file = cout_file;
-    manager->cin_file = cin_file;
-    if (create_queue()) {
-        manager->data_queue = create_queue();
     }
     return manager;
 }
 
-/**
- * @brief 创建用于保存水质数据节点的空队列。
- *
- * @return 成功返回新分配的队列，内存分配失败时返回 NULL。
- *
- * @note 队列创建后 front 和 rear 均为空，size 初始化为 0。
- */
 Queue* create_queue(void) {
     Queue* q = (Queue*)malloc(sizeof(Queue));
+    if (q == NULL) {
+        fprintf(stderr, "queue allocation failed\n");
+        return NULL;
+    }
     q->front = NULL;
     q->rear = NULL;
     q->size = 0;
     return q;
 }
 
-/**
- * @brief 通过具体读取策略读取一条数据记录。
- *
- * @param manager 保存文件和队列状态的数据管理器。
- * @param size 读取策略使用的队列最大容量。
- * @param diff_read_func 具体读取策略回调函数。
- *
- * @note 该函数只负责公共校验和策略调度，具体读取逻辑由回调函数实现。
- */
-void read_file(Data_Manager* manager, int size, void (*diff_read_func)(Data_Manager*, int)) {
-    if (manager == NULL) {
-        fprintf(stderr, "Data_Manager is not initialized\n");
-        return;
+Node* get_node_at(Queue* q, int index) {
+    if (q == NULL || index < 0 || index >= q->size) {
+        return NULL;
     }
-    if (diff_read_func == NULL) {
-        fprintf(stderr, "Read strategy is not provided\n");
+
+    Node* p = q->front;
+    for (int i = 0; i < index; i++) {
+        p = p->next_data;
+    }
+    return p;
+}
+
+void read_file(Data_Manager* manager, int size, Data_Read_Func diff_read_func) {
+    if (manager == NULL || diff_read_func == NULL) {
         return;
     }
     diff_read_func(manager, size);
 }
 
-/**
- * @brief 通过具体处理策略处理当前数据。
- *
- * @param manager 保存队列和输出状态的数据管理器。
- * @param diff_process_func 具体处理策略回调函数。
- *
- * @note 该函数用于解耦公共处理入口和不同的数据处理算法。
- */
-void process_data(Data_Manager* manager, void (*diff_process_func)(Data_Manager*)) {
-    if (diff_process_func == NULL) {
-        fprintf(stderr, "Process strategy is not provided\n");
+void process_data(Data_Manager* manager, Data_Process_Func diff_process_func) {
+    if (manager == NULL || diff_process_func == NULL) {
         return;
     }
-
     diff_process_func(manager);
 }
 
-/**
- * @brief 将当前输出数据记录写入结果文件。
- *
- * @param manager 保存输出文件和输出数据的数据管理器。
- * @return 写入成功返回 1，状态无效或写入失败返回 0。
- *
- * @note 写入的数据来自 manager->cout_data，调用前需要先完成数据选择或处理。
- */
 int write_file(Data_Manager* manager) {
-    if (manager == NULL ||
-        manager->data_queue == NULL ||
-        manager->cout_file == NULL ||
-        manager->cout_data == NULL) {
+    if (manager == NULL || manager->cout_file == NULL || manager->cout_data == NULL) {
         return 0;
     }
-
     fprintf(manager->cout_file, "%lf,%lf,%lf,%lf,%lf,%lf\n",
             manager->cout_data->temp,
             manager->cout_data->salinity,
@@ -118,140 +87,81 @@ int write_file(Data_Manager* manager) {
             manager->cout_data->do_value,
             manager->cout_data->precipitation,
             manager->cout_data->air_temp);
-
     return 1;
 }
 
-/**
- * @brief 获取队列中指定下标的节点。
- *
- * @param q 需要查询的队列。
- * @param index 从 0 开始的节点下标。
- * @return 成功返回节点指针，队列或下标无效时返回 NULL。
- *
- * @note 该函数从队头开始顺序遍历，因此访问复杂度为 O(n)。
- */
-Node* get_node_at(Queue* q, int index) {
-    if (q == NULL || index < 0 || index >= q->size) {
-        return NULL;
+static int enqueue_data(Queue* q, Data* data, int max_size) {
+    if (q == NULL || data == NULL || max_size <= 0) {
+        return 0;
+    }
+    if (q->size >= max_size && q->front != NULL) {
+        Node* old = q->front;
+        q->front = old->next_data;
+        if (q->front != NULL) {
+            q->front->prev_data = NULL;
+        } else {
+            q->rear = NULL;
+        }
+        free(old->data);
+        free(old);
+        q->size--;
     }
 
-    Node* p = q->front;
-
-    for (int i = 0; i < index; i++) {
-        p = p->next_data;
+    Node* node = (Node*)malloc(sizeof(Node));
+    if (node == NULL) {
+        return 0;
     }
-
-    return p;
-}
-
-/**
- * @brief 默认处理策略，用于选择当前应输出的数据记录。
- *
- * @param manager 保存队列和输出状态的数据管理器。
- *
- * @note 当队列数据不足 11 条时不输出；数据足够时选择满足前后窗口要求的记录。
- */
-void prev_process_func(Data_Manager* manager) {
-    if (manager == NULL || manager->data_queue == NULL || manager->cout_file == NULL) {
-        return;
-    }
-
-    Queue* q = manager->data_queue;
-
-    int index;
-
-    if (q->size < 11) {
-        return;
-    } else if (q->size < 21) {
-        index = q->size - 11;
+    node->data = data;
+    node->next_data = NULL;
+    node->prev_data = q->rear;
+    if (q->rear != NULL) {
+        q->rear->next_data = node;
     } else {
-        index = 10;
+        q->front = node;
     }
+    q->rear = node;
+    q->size++;
+    return 1;
+}
 
-    Node* target = get_node_at(q, index);
-    if (target == NULL || target->data == NULL) {
+void prev_read_func(Data_Manager* manager, int size) {
+    if (manager == NULL || manager->cin_file == NULL || manager->data_queue == NULL) {
         return;
     }
 
-    manager->cout_data = target->data;
-}
-
-/**
- * @brief 默认读取策略，用于读取一条 CSV 记录并加入队列。
- *
- * @param manager 保存输入文件和队列状态的数据管理器。
- * @param size 队列最大容量。
- *
- * @note 当队列已满时，会先移除队头旧数据，再把新读取的数据加入队尾。
- */
-void prev_read_func(Data_Manager* manager, int size) {
     char line[256];
     if (fgets(line, sizeof(line), manager->cin_file) == NULL) {
         manager->is_read_finished = 1;
         return;
     }
 
-    Data_Struct* temp_data = (Data_Struct*)malloc(sizeof(Data_Struct));
-    if (temp_data == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+    Data* data = (Data*)malloc(sizeof(Data));
+    if (data == NULL) {
         return;
     }
-
+    data->record_index = manager->data_queue->size + 1;
     int ret = sscanf(line, "%lf,%lf,%lf,%lf,%lf,%lf",
-                     &temp_data->temp,
-                     &temp_data->salinity,
-                     &temp_data->ph,
-                     &temp_data->do_value,
-                     &temp_data->precipitation,
-                     &temp_data->air_temp);
+                     &data->temp,
+                     &data->salinity,
+                     &data->ph,
+                     &data->do_value,
+                     &data->precipitation,
+                     &data->air_temp);
     if (ret != 6) {
-        fprintf(stderr, "Invalid data format\n");
-        free(temp_data);
+        free(data);
         return;
     }
-    if (size <= 0) {
-        fprintf(stderr, "Queue capacity must be greater than 0\n");
-        free(temp_data);
+    if (!enqueue_data(manager->data_queue, data, size)) {
+        free(data);
+    }
+}
+
+void prev_process_func(Data_Manager* manager) {
+    if (manager == NULL || manager->data_queue == NULL || manager->data_queue->size == 0) {
         return;
     }
 
-    if (manager->data_queue->size < size) {
-        Node* new_node = (Node*)malloc(sizeof(Node));
-        new_node->data = temp_data;
-        new_node->next_data = NULL;
-        new_node->prev_data = NULL;
-        if (manager->data_queue->rear == NULL) {
-            manager->data_queue->front = new_node;
-            manager->data_queue->rear = new_node;
-        } else {
-            manager->data_queue->rear->next_data = new_node;
-            new_node->prev_data = manager->data_queue->rear;
-            manager->data_queue->rear = new_node;
-        }
-        manager->data_queue->size++;
-    } else {
-        Node* temp = manager->data_queue->front;
-        manager->data_queue->front = temp->next_data;
-        if (manager->data_queue->front != NULL) {
-            manager->data_queue->front->prev_data = NULL;
-        }
-        free(temp->data);
-        free(temp);
-        manager->data_queue->size--;
-
-        Node* new_node = (Node*)malloc(sizeof(Node));
-        new_node->data = temp_data;
-        new_node->next_data = NULL;
-        new_node->prev_data = NULL;
-        if (manager->data_queue->rear == NULL) {
-            manager->data_queue->front = new_node;
-            manager->data_queue->rear = new_node;
-        } else {
-            manager->data_queue->rear->next_data = new_node;
-            new_node->prev_data = manager->data_queue->rear;
-            manager->data_queue->rear = new_node;
-        }
-        manager->data_queue->size++;
-    }
+    int index = manager->data_queue->size >= 21 ? 10 : manager->data_queue->size - 1;
+    Node* node = get_node_at(manager->data_queue, index);
+    manager->cout_data = node == NULL ? NULL : node->data;
 }

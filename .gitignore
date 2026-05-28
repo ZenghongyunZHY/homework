@@ -1,0 +1,10 @@
+water_quality.exe
+workspace/
+report/
+backup/
+dao/data_clean.csv
+dao/data_clean.bin
+__pycache__/
+.codex_tmp/
+build/
+cmake-build-*/

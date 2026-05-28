@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 4.0)
-project(homework C)
+project(water_quality C)
 
 set(CMAKE_C_STANDARD 11)
 
 include_directories(.)
 
-add_executable(homework
-        mian.c
+add_executable(water_quality
+        main.c
         pojo/Data.h
         pojo/User.h
         controller/DataController.c
@@ -16,3 +16,7 @@ add_executable(homework
         view/DataView.c
         view/DataView.h
         util/operation_file.c)
+
+if (NOT MSVC)
+    target_link_libraries(water_quality m)
+endif()

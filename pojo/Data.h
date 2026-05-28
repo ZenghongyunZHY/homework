@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 typedef struct {
+    int record_index;
     double temp;
     double salinity;
     double ph;
@@ -15,6 +16,12 @@ typedef struct {
     double precipitation;
     double air_temp;
 } Data;
+
+typedef struct {
+    Data* items;
+    int size;
+    int capacity;
+} DataSet;
 
 typedef struct Node {
     Data* data;

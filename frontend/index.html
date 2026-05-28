@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>海水养殖水质分析系统</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main id="login-screen" class="login-shell">
+    <section class="login-panel">
+      <div>
+        <p class="eyebrow">Water Quality Console</p>
+        <h1>海水养殖水质分析系统</h1>
+      </div>
+      <form id="login-form" class="login-form">
+        <label>
+          用户名
+          <input id="username" name="username" autocomplete="username" value="admin" required>
+        </label>
+        <label>
+          密码
+          <input id="password" name="password" type="password" autocomplete="current-password" value="123456" required>
+        </label>
+        <button type="submit">登录</button>
+        <p id="login-message" class="message"></p>
+      </form>
+    </section>
+  </main>
+
+  <main id="app-shell" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">WQ</span>
+        <div>
+          <strong>水质分析</strong>
+          <small id="user-role">管理员</small>
+        </div>
+      </div>
+      <nav id="nav-list" class="nav-list"></nav>
+      <button id="logout-button" class="ghost-button">退出登录</button>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <p id="section-kicker" class="eyebrow">Overview</p>
+          <h2 id="section-title">数据概览</h2>
+        </div>
+        <button id="refresh-button" class="secondary-button">刷新</button>
+      </header>
+      <section id="content" class="content"></section>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
