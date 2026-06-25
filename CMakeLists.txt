@@ -15,7 +15,8 @@ add_executable(water_quality
         service/DataService.h
         view/DataView.c
         view/DataView.h
-        util/operation_file.c)
+        util/operation_file.c
+        util/operation_file.h)
 
 if (NOT MSVC)
     target_link_libraries(water_quality m)
