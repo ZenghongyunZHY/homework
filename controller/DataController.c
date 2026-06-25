@@ -126,6 +126,15 @@ int controller_run_interactive(void) {
     int running = 1;
     while (running) {
         int choice = view_show_main_menu(&state);
+        if (state.current_user.role != 1) {
+            switch (choice) {
+                case 1: choice = 5; break;  /* 概览 */
+                case 2: choice = 6; break;  /* 预警报告 */
+                case 3: choice = 7; break;  /* 分析报告 */
+                case 4: choice = 9; break;  /* 清屏 */
+                default: break;            /* 0 退出 */
+            }
+        }
         switch (choice) {
             case 0:
                 if (view_confirm("确定要退出系统吗？")) running = 0;
