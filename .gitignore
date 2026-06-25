@@ -12,3 +12,4 @@ cmake-build-*/
 .idea
 test_run
 要求.txt
+*.docx
