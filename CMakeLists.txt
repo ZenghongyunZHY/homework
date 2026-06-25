@@ -11,10 +11,24 @@ add_executable(water_quality
         pojo/User.h
         controller/DataController.c
         controller/DataController.h
-        service/DataService.c
+        service/field_meta.c
+        service/dataset.c
+        service/io_csv.c
+        service/io_marks.c
+        service/analyze.c
+        service/auth.c
+        service/storage_backup.c
+        service/reports.c
         service/DataService.h
-        view/DataView.c
+        service/DataServiceInternal.h
+        view/view_util.c
+        view/view_login.c
+        view/view_crud.c
+        view/view_analyze.c
+        view/view_report.c
+        view/view_backup.c
         view/DataView.h
+        view/DataViewInternal.h
         util/operation_file.c
         util/operation_file.h)
 

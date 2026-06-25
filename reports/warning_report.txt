@@ -1,0 +1,98 @@
+========================================
+  海水养殖水质数据分析系统 - 报告
+  生成时间: 2026-06-25 19:14:15
+========================================
+
+【预警报告】
+
+  预警总数: 85
+
+时间                 类型                       数值   处理建议
+------------------------------------------------------------------------
+2025-01-30 03:00       亚缺氧                    3.6098   Turn on bottom aerator.
+2025-01-31 03:00       亚缺氧                    3.5819   Turn on bottom aerator.
+2025-02-02 03:00       亚缺氧                    3.5165   Turn on bottom aerator.
+2025-02-10 03:00       亚缺氧                    3.5327   Turn on bottom aerator.
+2025-02-11 03:00       严重缺氧                 2.4403   Add granular oxygen immediately and reduce feeding.
+2025-02-12 03:00       严重缺氧                 2.4539   Add granular oxygen immediately and reduce feeding.
+2025-02-13 03:00       严重缺氧                 1.8618   Add granular oxygen immediately and reduce feeding.
+2025-02-14 03:00       严重缺氧                 1.3293   Add granular oxygen immediately and reduce feeding.
+2025-02-15 03:00       严重缺氧                 1.3240   Add granular oxygen immediately and reduce feeding.
+2025-02-16 03:00       严重缺氧                 1.8050   Add granular oxygen immediately and reduce feeding.
+2025-02-17 03:00       严重缺氧                 2.9906   Add granular oxygen immediately and reduce feeding.
+2025-02-19 03:00       严重缺氧                 0.9932   Add granular oxygen immediately and reduce feeding.
+2025-02-20 03:00       严重缺氧                 2.5274   Add granular oxygen immediately and reduce feeding.
+2025-02-21 03:00       严重缺氧                 2.5567   Add granular oxygen immediately and reduce feeding.
+2025-02-22 03:00       严重缺氧                 2.3543   Add granular oxygen immediately and reduce feeding.
+2025-02-23 03:00       严重缺氧                 1.8164   Add granular oxygen immediately and reduce feeding.
+2025-02-24 03:00       严重缺氧                 1.3232   Add granular oxygen immediately and reduce feeding.
+2025-02-25 03:00       严重缺氧                 0.8859   Add granular oxygen immediately and reduce feeding.
+2025-02-26 03:00       严重缺氧                 1.4169   Add granular oxygen immediately and reduce feeding.
+2025-02-27 03:00       严重缺氧                 1.0635   Add granular oxygen immediately and reduce feeding.
+2025-02-28 03:00       严重缺氧                 1.4757   Add granular oxygen immediately and reduce feeding.
+2025-03-01 03:00       严重缺氧                 2.9483   Add granular oxygen immediately and reduce feeding.
+2025-03-02 03:00       严重缺氧                 2.9372   Add granular oxygen immediately and reduce feeding.
+2025-03-03 03:00       亚缺氧                    3.3512   Turn on bottom aerator.
+2025-03-04 03:00       严重缺氧                 1.4063   Add granular oxygen immediately and reduce feeding.
+2025-03-05 03:00       严重缺氧                 1.6313   Add granular oxygen immediately and reduce feeding.
+2025-03-06 03:00       严重缺氧                 1.3089   Add granular oxygen immediately and reduce feeding.
+2025-03-07 03:00       严重缺氧                 2.3147   Add granular oxygen immediately and reduce feeding.
+2025-03-08 03:00       严重缺氧                 1.2281   Add granular oxygen immediately and reduce feeding.
+2025-03-09 03:00       亚缺氧                    3.3097   Turn on bottom aerator.
+2025-03-11 03:00       严重缺氧                 2.1849   Add granular oxygen immediately and reduce feeding.
+2025-03-12 03:00       严重缺氧                 2.5105   Add granular oxygen immediately and reduce feeding.
+2025-03-13 03:00       严重缺氧                 2.8424   Add granular oxygen immediately and reduce feeding.
+2025-03-14 03:00       严重缺氧                 1.4447   Add granular oxygen immediately and reduce feeding.
+2025-03-15 03:00       严重缺氧                 2.7453   Add granular oxygen immediately and reduce feeding.
+2025-03-16 03:00       亚缺氧                    3.6622   Turn on bottom aerator.
+2025-03-17 03:00       亚缺氧                    3.9027   Turn on bottom aerator.
+2025-03-18 03:00       严重缺氧                 2.9247   Add granular oxygen immediately and reduce feeding.
+2025-03-04 12:55       盐度突变(1h)             2.1534   Close inlet and add VC or glucose.
+2025-03-04 13:00       盐度突变(1h)             2.1358   Close inlet and add VC or glucose.
+2025-03-06 18:35       盐度突变(1h)            35.0291   Close inlet and add VC or glucose.
+2025-03-09 06:35       盐度突变(1h)             2.1632   Close inlet and add VC or glucose.
+2025-03-09 06:40       盐度突变(1h)             2.4882   Close inlet and add VC or glucose.
+2025-03-09 06:45       盐度突变(1h)             2.9825   Close inlet and add VC or glucose.
+2025-03-09 06:50       盐度突变(1h)             2.8984   Close inlet and add VC or glucose.
+2025-03-09 06:55       盐度突变(1h)             2.9773   Close inlet and add VC or glucose.
+2025-03-09 07:00       盐度突变(1h)             2.9744   Close inlet and add VC or glucose.
+2025-03-09 07:05       盐度突变(1h)             2.5019   Close inlet and add VC or glucose.
+2025-03-09 07:10       盐度突变(1h)             2.3359   Close inlet and add VC or glucose.
+2025-03-09 07:15       盐度突变(1h)             2.3517   Close inlet and add VC or glucose.
+2025-03-10 03:45       盐度突变(1h)             2.0073   Close inlet and add VC or glucose.
+2025-03-19 15:25       盐度突变(1h)             2.3134   Close inlet and add VC or glucose.
+2025-03-19 15:30       盐度突变(1h)             2.8254   Close inlet and add VC or glucose.
+2025-03-19 15:35       盐度突变(1h)             3.1841   Close inlet and add VC or glucose.
+2025-03-19 15:40       盐度突变(1h)             3.4823   Close inlet and add VC or glucose.
+2025-03-19 15:45       盐度突变(1h)             3.3563   Close inlet and add VC or glucose.
+2025-03-19 15:50       盐度突变(1h)             3.2875   Close inlet and add VC or glucose.
+2025-03-19 15:55       盐度突变(1h)             3.0236   Close inlet and add VC or glucose.
+2025-03-19 16:00       盐度突变(1h)             2.8998   Close inlet and add VC or glucose.
+2025-03-19 16:05       盐度突变(1h)             2.6708   Close inlet and add VC or glucose.
+2025-03-19 16:10       盐度突变(1h)             2.1823   Close inlet and add VC or glucose.
+2025-03-20 09:30       盐度突变(1h)             2.1448   Close inlet and add VC or glucose.
+2025-03-20 09:35       盐度突变(1h)             2.0964   Close inlet and add VC or glucose.
+2025-03-20 09:40       盐度突变(1h)             2.5149   Close inlet and add VC or glucose.
+2025-03-20 09:45       盐度突变(1h)             2.8887   Close inlet and add VC or glucose.
+2025-03-20 09:50       盐度突变(1h)             2.7348   Close inlet and add VC or glucose.
+2025-03-20 09:55       盐度突变(1h)             2.6530   Close inlet and add VC or glucose.
+2025-03-20 10:00       盐度突变(1h)             2.7939   Close inlet and add VC or glucose.
+2025-03-20 10:05       盐度突变(1h)             2.6240   Close inlet and add VC or glucose.
+2025-03-20 10:10       盐度突变(1h)             2.6532   Close inlet and add VC or glucose.
+2025-03-20 10:15       盐度突变(1h)             2.2312   Close inlet and add VC or glucose.
+2025-03-20 13:35       盐度突变(1h)             2.0695   Close inlet and add VC or glucose.
+2025-03-20 13:40       盐度突变(1h)             2.0913   Close inlet and add VC or glucose.
+2025-03-20 13:45       盐度突变(1h)             2.3355   Close inlet and add VC or glucose.
+2025-03-20 13:50       盐度突变(1h)             2.2986   Close inlet and add VC or glucose.
+2025-03-20 13:55       盐度突变(1h)             2.3102   Close inlet and add VC or glucose.
+2025-03-20 14:00       盐度突变(1h)             2.5204   Close inlet and add VC or glucose.
+2025-03-20 14:05       盐度突变(1h)             2.4473   Close inlet and add VC or glucose.
+2025-03-20 14:10       盐度突变(1h)             2.3892   Close inlet and add VC or glucose.
+2025-03-20 14:15       盐度突变(1h)             2.0819   Close inlet and add VC or glucose.
+2025-03-22 20:55       盐度突变(1h)             2.0273   Close inlet and add VC or glucose.
+2025-03-22 21:00       盐度突变(1h)             2.2050   Close inlet and add VC or glucose.
+2025-03-22 21:05       盐度突变(1h)             2.1457   Close inlet and add VC or glucose.
+2025-02-23 14:00       盐度突变(24h)            5.1326   Close inlet and add VC or glucose.
+2025-03-06 18:35       盐度突变(24h)           34.8576   Close inlet and add VC or glucose.
+
+========================================

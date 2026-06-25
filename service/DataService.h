@@ -191,7 +191,7 @@ char* data_service_backup_file(const char* src_path);
 char** data_service_list_backups(const char* dir_path, int* count_out);
 int data_service_restore_from_backup(const char* backup_path, DataSet* set, ReadSummary* summary);
 
-/* ── report generation ── */
+/* ── reports generation ── */
 int data_service_generate_overview_report(const char* path, const DataSet* set,
     const ReadSummary* summary, const PreprocessResult* preprocess);
 int data_service_generate_stats_report(const char* path,
@@ -199,8 +199,5 @@ int data_service_generate_stats_report(const char* path,
 int data_service_generate_warning_report(const char* path, const WarningSet* warnings);
 int data_service_generate_predict_report(const char* path,
     const RegressionResult* primary, const RegressionResult models[4]);
-
-/* ── CLI mode ── */
-int data_service_run_cli(int argc, char** argv);
 
 #endif // HOMEWORK_DATASERVICE_H

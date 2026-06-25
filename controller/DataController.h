@@ -34,6 +34,26 @@ typedef struct {
     char query_operation_filter[32];
 } AppState;
 
+/* ── 生命周期 ── */
+void controller_init(AppState* state);
+void controller_destroy(AppState* state);
+
+/* ── 数据加载 ── */
+int controller_load_data(AppState* state, const char* filepath);
+
+/* ── 预处理与滤波 ── */
+int controller_run_preprocess(AppState* state, PreprocessResult* result);
+int controller_run_filter(AppState* state, int window,
+    BasicStats before[WQ_FIELD_COUNT], BasicStats after[WQ_FIELD_COUNT]);
+
+/* ── 数据维护 ── */
+int controller_modify_record(AppState* state, int row, int field, double value, double* old_val);
+int controller_delete_records(AppState* state, int row, int field, double min, double max,
+    int** rows, int* count);
+int controller_add_record(AppState* state, Data item);
+int controller_save_data(AppState* state);
+
+/* ── 交互菜单入口 ── */
 int controller_run_interactive(void);
 
 #endif // HOMEWORK_DATACONTROLLER_H

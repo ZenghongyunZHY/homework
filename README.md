@@ -2,108 +2,106 @@
 
 ## 项目简介
 
-本项目使用 C 语言实现海水养殖水质数据分析内核，处理水温、盐度、pH、溶解氧、降水量、气温 6 项参数，支持数据读取、预处理、统计分析、风险预警、线性回归预测和数据维护。
+本项目使用 C 语言实现海水养殖水质数据分析系统，处理水温、盐度、pH、溶解氧、降水量、气温 6 项参数，支持数据读取、预处理、统计分析、风险预警、线性回归预测和数据维护。
 
-项目同时提供一个轻量本地 Web 界面：前端使用原生 HTML/CSS/JS，服务层使用 Python 标准库 `http.server`，所有数据清洗、分析、预测和增删改仍由 C 可执行程序完成。
+程序以**黑窗口（终端）交互菜单**方式运行，启动后先登录，再通过数字菜单选择各功能模块。
 
-## 当前工作流
+## 编译
 
-程序启动后工作区默认为空，不会自动读取 `dao/` 目录中的数据。管理员需要先在“添加文件”中上传 CSV 文件，系统随后自动执行预处理。
-
-每个上传文件存放在：
-
-```text
-workspace/files/<file_id>/
-```
-
-核心文件结构：
-
-```text
-raw.csv
-versions/v000_raw.csv
-versions/v001_preprocessed.csv
-preview/raw_preprocess_marks.csv
-preview/processed_operation_marks.json
-backups/
-analysis/
-reports/
-metadata.json
-logs.jsonl
-```
-
-说明：
-
-- `v000_raw.csv`：未处理原始版本，只用于展示预处理预测标记。
-- `v001_preprocessed.csv`：已处理工作副本，修改、软删除、新增都直接作用在这个文件上。
-- `raw_preprocess_marks.csv`：原始版本的预处理标记，用于显示“不处理、将删除、缺失填充、异常修复、修复并填充”。
-- `processed_operation_marks.json`：已处理版本的操作标记，用于显示“已修改、已删除、新增”。
-- `backups/`：修改、删除、新增、重新预处理、恢复前的保护备份目录。
-- `analysis/`：移动平均滤波等分析输出文件。
-- `reports/`：概览、统计、预警、预测文本报告。
-- 不再为每次修改或删除生成 `v002_modify.csv`、`v003_delete.csv` 这类快照版本。
-- 删除采用软删除：记录仍保留在表格中，但统计、预警、预测默认排除软删除记录。
-
-## 运行方式
-
-1. 编译 C 数据处理程序：
+### 方式一：GCC 直接编译
 
 ```bash
 gcc -std=c11 -Wall -Wextra -I. main.c controller/DataController.c service/DataService.c view/DataView.c util/operation_file.c -lm -o water_quality.exe
 ```
 
-2. 启动本地 Web 服务：
+### 方式二：CMake 编译
 
 ```bash
-python server.py
+cmake -S . -B build
+cmake --build build
 ```
 
-3. 浏览器访问：
+如果本机没有 GCC 或 CMake，请先安装 MinGW、MSYS2、CLion 工具链或其他 C 编译环境。
 
-```text
-http://127.0.0.1:8000
+## 运行
+
+### 交互菜单模式（推荐）
+
+直接双击 `water_quality.exe` 或在终端执行：
+
+```bash
+./water_quality.exe
 ```
+
+启动后流程：
+
+1. 登录界面，输入用户名和密码（密码以星号显示）。
+2. 输入数据文件路径（默认 `dao/data_modify.csv`）。
+3. 进入主菜单，按数字键选择功能。
 
 默认账号：
 
-- 管理员：`admin / 123456`
-- 访客：`guest / guest`
+| 角色 | 用户名 | 密码 | 权限 |
+| --- | --- | --- | --- |
+| 管理员 | `admin` | `123456` | 全部功能 |
+| 访客 | `guest` | `guest` | 仅查看概览、预警、分析报告 |
 
-## Web 功能
+登录失败 3 次后程序自动退出。
 
-- 添加文件：上传 CSV，并自动生成未处理版本、已处理版本和预处理标记。
-- 已保存文件：管理员查看所有上传文件、核心版本和操作数量摘要。
-- 数据浏览：拆分为“未处理版本文件”和“已处理版本文件”。
-- 未处理版本文件：按预处理方式筛选并用底色标记将删除、缺失填充、异常修复等数据。
-- 已处理版本文件：按操作方式筛选并用底色标记已修改、已删除、新增记录；被修改的具体字段会有更深底色。
-- 数据维护：在已处理版本中修改字段、按记录号软删除、按字段范围批量软删除、新增完整记录；每次写入前会自动备份。
-- 数据预处理：查看预处理日志，也可重新预处理原始版本；支持窗口 3、5、7、9、11 的移动平均滤波和标准差对比。
-- 备份与恢复：手动备份当前工作副本，查看自动备份列表，并从备份恢复 `v001_preprocessed.csv` 和 `processed_operation_marks.json`。
-- 日志：按文件分组展示上传、预处理、修改、软删除、新增日志，记录操作者、时间、记录号、字段、旧值、新值。
-- 统计分析：点击“刷新统计”后，对当前文件的 `v001_preprocessed.csv` 重新计算统计结果，并排除软删除记录；可导出报告文件。
-- 预警报告、预测分析：均基于当前文件的已处理工作副本，并排除软删除记录；预测页可输入气温计算预测 DO。
-- 登录限制：登录失败 3 次后禁用登录按钮。
+### 主菜单（管理员）
 
-## C CLI 示例
-
-```bash
-water_quality.exe preprocess --input raw.csv --output versions/v001_preprocessed.csv --marks preview/raw_preprocess_marks.csv
-water_quality.exe query --input versions/v000_raw.csv --view raw --raw-marks preview/raw_preprocess_marks.csv
-water_quality.exe query --input versions/v001_preprocessed.csv --view processed --op-marks preview/processed_operation_marks.json
-water_quality.exe modify --input versions/v001_preprocessed.csv --row 10 --field ph --value 8.1
-water_quality.exe delete --input versions/v001_preprocessed.csv --row 20
-water_quality.exe add --input versions/v001_preprocessed.csv --temp 25 --salinity 34 --ph 8.1 --do 6 --precipitation 0 --air_temp 27
-water_quality.exe filter --input versions/v001_preprocessed.csv --output analysis/filter_window_5.csv --window 5
-water_quality.exe stats --input versions/v001_preprocessed.csv --op-marks preview/processed_operation_marks.json
+```
+========================================
+  海水养殖水质分析系统 v1.0
+  当前用户: admin (管理员)
+  当前数据文件: dao/data_modify.csv (23203 条记录)
+========================================
+  [1] 数据基础操作
+  [2] 数据预处理
+  [3] 统计分析
+  [4] 预测分析
+  [5] 查看数据概览
+  [6] 查看预警报告
+  [7] 查看分析报告
+  [8] 数据备份与恢复
+  [9] 清屏
+  [0] 退出系统
+========================================
 ```
 
-## 测试重点
+### 各菜单功能
 
-- 上传后只生成 `v000_raw.csv` 和 `v001_preprocessed.csv` 两个核心版本。
-- 修改字段后，已处理表格中对应记录和字段有操作标记，日志记录旧值和新值。
-- 修改、软删除、新增、重新预处理前会在 `backups/` 中生成保护备份。
-- 软删除后，记录仍显示在已处理表格中，但统计刷新时被排除。
-- 可以从备份恢复当前工作副本和操作标记。
-- 新增记录会追加到已处理文件末尾，并显示为新增记录。
-- 移动平均滤波能生成 `analysis/filter_window_*.csv` 并显示标准差变化。
-- 可以生成 `reports/overview_report.txt`、`stat_report.txt`、`warning_report.txt`、`predict_report.txt`。
-- 未处理版本和已处理版本使用不同的筛选项与标记逻辑。
+- **数据基础操作**：分页浏览（每页 15 条，支持上/下一页、跳转）、按条件筛选、按参数升/降序排序；单条修改、单条/批量删除、添加新记录；CSV 与二进制存储性能对比；修改/删除前自动备份，操作后可保存到文件。
+- **数据预处理**：异常值检测（超范围剔除/修复）、缺失值均值逼近法填充；移动平均滤波（窗口 3/5/7/9/11）并输出滤波前后标准差对比。
+- **统计分析**：基本统计量（均值/最值/标准差）；6×6 皮尔逊相关系数矩阵及关键参数相关性结论。
+- **预测分析**：气温→溶解氧线性回归预测（R² 与留出法 RMSE 评估），多因子对比（水温/pH/盐度/气温）。
+- **数据概览**：总记录数、有效记录数、异常记录数、含缺失值记录数。
+- **预警报告**：凌晨缺氧预警（亚缺氧/严重缺氧）、盐度突变预警（1 小时/24 小时）。
+- **分析报告**：生成概览、统计、预警、预测文本报告到 `reports/` 目录。
+- **数据备份与恢复**：手动备份（带时间戳）、查看备份列表、从备份恢复。
+
+## 工程结构
+
+```
+main.c                       入口：启动交互菜单
+pojo/Data.h, User.h          数据结构：Data/DataSet/User
+service/DataService.c/.h     业务逻辑：CSV 读写、预处理、统计、预警、预测、备份、报告
+controller/DataController.c/.h  状态管理与菜单循环调度
+view/DataView.c/.h           终端交互界面：登录、主菜单、子菜单、表格显示
+util/operation_file.c/.h     文件操作辅助
+dao/data_modify.csv          水质数据（23203 条）
+```
+
+## 常见问题
+
+### Q1：中文显示乱码？
+
+Windows 终端建议使用 UTF-8 编码。程序启动时会自动执行 `chcp 65001`，如仍乱码请在 Windows Terminal 或 PowerShell 中运行。
+
+### Q2：报告生成失败？
+
+生成报告需 `reports/` 目录，程序会自动创建。若仍失败请检查当前目录写权限。
+
+### Q3：找不到数据文件？
+
+默认数据文件为 `dao/data_modify.csv`，启动时直接回车使用默认路径，或输入自定义路径。
